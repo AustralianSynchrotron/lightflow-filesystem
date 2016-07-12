@@ -1,5 +1,5 @@
 import os
-from lightflow.models import BaseTask
+from lightflow.models import BaseTask, Action
 from lightflow.logger import get_logger
 
 logger = get_logger(__name__)
@@ -45,6 +45,7 @@ class MakeDirTask(BaseTask):
                     should be executed.
         """
         self.makedirs(self._directory)
+        return Action(data)
 
     @staticmethod
     def makedirs(directory):

@@ -1,7 +1,7 @@
 import os
 import shutil
 
-from lightflow.models import BaseTask
+from lightflow.models import BaseTask, Action
 from lightflow.logger import get_logger
 
 logger = get_logger(__name__)
@@ -16,7 +16,7 @@ class CopyError(RuntimeError):
 
 
 class CopyTask(BaseTask):
-    """ Copies a file or folder from a source to a target. """
+    """ Copies a file or folder from a source to a destination. """
     def __init__(self, name, source, destination, force_run=False, propagate_skip=True):
         """ Initialise the Copy task.
 
@@ -33,7 +33,7 @@ class CopyTask(BaseTask):
         self._destination = destination
 
     def run(self, data, data_store, signal, **kwargs):
-        """ The main run method of the MakeDir task.
+        """ The main run method of the CopyTask task.
 
         Args:
             data (MultiTaskData): The data object that has been passed from the
@@ -54,6 +54,7 @@ class CopyTask(BaseTask):
                     should be executed.
         """
         self.copy(self._source, self._destination)
+        return Action(data)
 
     @staticmethod
     def copy(source, destination):
