@@ -15,5 +15,9 @@ class LightflowFilesystemChownError(RuntimeError):
     pass
 
 
+class LightflowFilesystemChmodError(RuntimeError):
+    pass
+
+
 class LightflowFilesystemPermissionError(RuntimeError):
     pass
