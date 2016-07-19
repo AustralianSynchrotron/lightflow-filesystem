@@ -1,6 +1,7 @@
-from .exceptions import LightflowFilesystemPathError, LightflowFilesystemCopyError,\
-    LightflowFilesystemMkdirError, LightflowFilesystemChownError, \
-    LightflowFilesystemChmodError, LightflowFilesystemPermissionError
+from .exceptions import (LightflowFilesystemConfigError, LightflowFilesystemPathError,
+                         LightflowFilesystemCopyError, LightflowFilesystemMkdirError,
+                         LightflowFilesystemChownError, LightflowFilesystemChmodError,
+                         LightflowFilesystemPermissionError)
 
 from .makedir_task import MakeDirTask
 from .copy_task import CopyTask

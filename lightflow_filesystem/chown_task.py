@@ -3,7 +3,8 @@ import shutil
 
 from lightflow.models import BaseTask
 from lightflow.logger import get_logger
-from .exceptions import LightflowFilesystemPathError, LightflowFilesystemChownError
+from .exceptions import (LightflowFilesystemConfigError, LightflowFilesystemPathError,
+                         LightflowFilesystemChownError)
 
 logger = get_logger(__name__)
 
@@ -57,6 +58,10 @@ class ChownTask(BaseTask):
                     to the next task and optionally a list of successor tasks that
                     should be executed.
         """
+        if self._user is None and self._group is None:
+            raise LightflowFilesystemConfigError(
+                'At least the user or the group has to be specified')
+
         if os.path.isdir(self._path):
             if not os.path.isabs(self._path):
                 raise LightflowFilesystemPathError(

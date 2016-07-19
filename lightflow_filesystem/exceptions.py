@@ -1,4 +1,8 @@
 
+class LightflowFilesystemConfigError(RuntimeError):
+    pass
+
+
 class LightflowFilesystemPathError(RuntimeError):
     pass
 
