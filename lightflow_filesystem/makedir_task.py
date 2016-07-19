@@ -1,12 +1,9 @@
 import os
 from lightflow.models import BaseTask, Action
 from lightflow.logger import get_logger
+from .exceptions import LightflowFilesystemPathError, LightflowFilesystemMkdirError
 
 logger = get_logger(__name__)
-
-
-class AbsolutePathError(RuntimeError):
-    pass
 
 
 class MakeDirTask(BaseTask):
@@ -59,12 +56,17 @@ class MakeDirTask(BaseTask):
                              has to be an absolute path, otherwise an exception is thrown.
 
         Raises:
-            NotAbsolutePath: If the specified directory is not an absolute path.
+            AbsolutePathError: If the specified directory is not an absolute path.
         """
         if not os.path.isabs(path):
-            raise AbsolutePathError()
+            raise LightflowFilesystemPathError(
+                'The specified path is not an absolute path')
 
         if not os.path.exists(path):
-            os.makedirs(path)
+            try:
+                os.makedirs(path)
+            except OSError as e:
+                raise LightflowFilesystemMkdirError(e)
+
         else:
             logger.info('Directory {} already exists. Skip creation.'.format(path))

@@ -3,16 +3,9 @@ import shutil
 
 from lightflow.models import BaseTask, Action
 from lightflow.logger import get_logger
+from .exceptions import LightflowFilesystemPathError, LightflowFilesystemCopyError
 
 logger = get_logger(__name__)
-
-
-class TargetDirectoryError(RuntimeError):
-    pass
-
-
-class CopyError(RuntimeError):
-    pass
 
 
 class CopyTask(BaseTask):
@@ -74,14 +67,15 @@ class CopyTask(BaseTask):
         """
         if os.path.isdir(source):
             if not os.path.isdir(destination):
-                raise TargetDirectoryError()
+                raise LightflowFilesystemPathError(
+                    'The destination is not a valid directory')
 
             try:
                 shutil.copytree(source, destination)
             except OSError as e:
-                raise CopyError(e)
+                raise LightflowFilesystemCopyError(e)
         else:
             try:
                 shutil.copy2(source, destination)
             except OSError as e:
-                raise CopyError(e)
+                raise LightflowFilesystemCopyError(e)
