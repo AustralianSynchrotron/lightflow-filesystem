@@ -1,4 +1,5 @@
 import os
+import time
 import inotify.adapters as adapters
 import inotify.constants as constants
 
@@ -22,6 +23,7 @@ class NotifyTriggerTask(TriggerTask):
                  data_key=None, aggregate=None,
                  on_file_create=False, on_file_close=True,
                  on_file_delete=False, on_file_move=False,
+                 event_trigger_time=None, signal_polling_rate=2,
                  force_run=False, propagate_skip=True):
         """ Initialise the filesystem notify trigger task.
 
@@ -44,6 +46,11 @@ class NotifyTriggerTask(TriggerTask):
             on_file_close (bool): Set to True to listen for file closing events.
             on_file_delete (bool): Set to True to listen for file deletion events.
             on_file_move (bool):  Set to True to listen for file move events.
+            event_trigger_time (float): The waiting time between events in seconds. Set
+                                        to None to turn off.
+            signal_polling_rate (int): The number of events after which a signal is sent
+                                       to the workflow to check whether the task
+                                       should be stopped.
             force_run (bool): Run the task even if it is flagged to be skipped.
             propagate_skip (bool): Propagate the skip flag to the next task.
         """
@@ -52,6 +59,8 @@ class NotifyTriggerTask(TriggerTask):
         self._recursive = recursive
         self._data_key = data_key if data_key is not None else 'files'
         self._aggregate = aggregate if aggregate is not None and aggregate > 0 else 1
+        self._event_trigger_time = event_trigger_time
+        self._signal_polling_rate = signal_polling_rate
 
         # build notification mask
         on_file_create = constants.IN_CREATE if on_file_create else 0x00000000
@@ -91,21 +100,32 @@ class NotifyTriggerTask(TriggerTask):
             notify.add_watch(self._path.encode('utf-8'))
 
         files = []
+        polling_event_number = 0
         try:
-            while 1:
-                for event in notify.event_gen():
-                    if event is not None:
-                        (header, type_names, watch_path, filename) = event
+            for event in notify.event_gen():
+                if self._event_trigger_time is not None:
+                    time.sleep(self._event_trigger_time)
 
-                        if (not header.mask & constants.IN_ISDIR) and\
-                                (header.mask & self._mask):
-                            files.append(os.path.join(watch_path.decode('utf-8'),
-                                                      filename.decode('utf-8')))
+                # check every _signal_polling_rate events the stop signal
+                polling_event_number += 1
+                if polling_event_number > self._signal_polling_rate:
+                    polling_event_number = 0
+                    if signal.is_stopped():
+                        break
 
-                        if len(files) >= self._aggregate:
-                            data[self._data_key] = files
-                            signal.run_dag(self._dag_name, data=data)
-                            del files[:]
+                # in case of an event check whether it matches the mask and call a dag
+                if event is not None:
+                    (header, type_names, watch_path, filename) = event
+
+                    if (not header.mask & constants.IN_ISDIR) and\
+                            (header.mask & self._mask):
+                        files.append(os.path.join(watch_path.decode('utf-8'),
+                                                  filename.decode('utf-8')))
+
+                    if len(files) >= self._aggregate:
+                        data[self._data_key] = files
+                        signal.run_dag(self._dag_name, data=data)
+                        del files[:]
 
         finally:
             if not self._recursive:
