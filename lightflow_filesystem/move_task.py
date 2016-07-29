@@ -3,24 +3,24 @@ import shutil
 
 from lightflow.logger import get_logger
 from lightflow.models import BaseTask, Action, TaskParameters
-from .exceptions import LightflowFilesystemPathError, LightflowFilesystemCopyError
+from .exceptions import LightflowFilesystemPathError, LightflowFilesystemMoveError
 
 logger = get_logger(__name__)
 
 
-class CopyTask(BaseTask):
-    """ Copies files or directories from a source to a destination. """
+class MoveTask(BaseTask):
+    """ Moves a list of files or folders from a source to a destination. """
     def __init__(self, name, sources, destination, force_run=False, propagate_skip=True):
-        """ Initialise the Copy task.
+        """ Initialise the Move task.
 
         Args:
             name (str): The name of the task.
-            sources: A list of file or directory paths that should be copied. This
+            sources: A list of file or directory paths that should be moved. This
                     parameter can either be a list of strings or a callable
                     returning a list of strings. The paths have to be absolute
                     paths, otherwise an exception is thrown.
             destination: The destination file or folder the source should be
-                         copied to. This parameter can either be a string or a
+                         moved to. This parameter can either be a string or a
                          callable returning a string.
             force_run (bool): Run the task even if it is flagged to be skipped.
             propagate_skip (bool): Propagate the skip flag to the next task.
@@ -32,7 +32,7 @@ class CopyTask(BaseTask):
         )
 
     def run(self, data, data_store, signal, **kwargs):
-        """ The main run method of the CopyTask task.
+        """ The main run method of the MoveTask task.
 
         Args:
             data (MultiTaskData): The data object that has been passed from the
@@ -46,7 +46,7 @@ class CopyTask(BaseTask):
         Raises:
             LightflowFilesystemPathError: If the source is a directory
                                           but the target is not.
-            LightflowFilesystemCopyError: If the copy process failed.
+            LightflowFilesystemMoveError: If the move process failed.
 
         Returns:
             Action: An Action object containing the data that should be passed on
@@ -55,21 +55,23 @@ class CopyTask(BaseTask):
         """
         params = self.params.eval(data, data_store)
         for source in params.sources:
-            logger.info('Copy {} to {}'.format(source, params.destination))
+            logger.info('Move {} to {}'.format(source, params.destination))
 
-            if os.path.isdir(source):
-                if not os.path.isdir(params.destination):
-                    raise LightflowFilesystemPathError(
-                        'The destination is not a valid directory')
+            if not os.path.isabs(source):
+                raise LightflowFilesystemPathError(
+                    'The source path is not an absolute path')
 
-                try:
-                    shutil.copytree(source, params.destination)
-                except OSError as e:
-                    raise LightflowFilesystemCopyError(e)
-            else:
-                try:
-                    shutil.copy2(source, params.destination)
-                except OSError as e:
-                    raise LightflowFilesystemCopyError(e)
+            if not os.path.isabs(params.destination):
+                raise LightflowFilesystemPathError(
+                    'The destination path is not an absolute path')
+
+            if os.path.isdir(source) and not os.path.isdir(params.destination):
+                raise LightflowFilesystemPathError(
+                    'The destination is not a valid directory')
+
+            try:
+                shutil.move(source, params.destination)
+            except OSError as e:
+                raise LightflowFilesystemMoveError(e)
 
         return Action(data)

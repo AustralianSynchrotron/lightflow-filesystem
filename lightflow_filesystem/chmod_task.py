@@ -1,37 +1,43 @@
 import os
 
-from lightflow.models import BaseTask
 from lightflow.logger import get_logger
+from lightflow.models import BaseTask, TaskParameters
 from .exceptions import LightflowFilesystemPathError, LightflowFilesystemChmodError
 
 logger = get_logger(__name__)
 
 
 class ChmodTask(BaseTask):
-    """ Sets the POSIX permissions of files or directories. """
-    def __init__(self, name, path, permission,
+    """ Sets the POSIX permissions of files and directories. """
+    def __init__(self, name, paths, permission,
                  recursive=True, only_dirs=False,
                  force_run=False, propagate_skip=True):
         """ Initialise the change permission task.
 
         Args:
             name (str): The name of the task.
-            path (str): The path to a file or directory for which the permission
-                        should be changed. The path has to be an absolute path,
-                        otherwise an exception is thrown.
-            permission (str): The POSIX permission as a string (e.g. '755').
-            recursive (bool): Set to True to recursively change subfolders and files
-                              if the path is pointing to a directory.
-            only_dirs (bool): Set to True to only set the permission for directories and
-                              not for files.
+            paths: A list of paths representing the files or directories for which
+                   the permissions should be changed. This parameter can either be
+                   a list of strings or a callable that returns a list of strings.
+                   The paths have to be absolute paths, otherwise an exception is thrown.
+            permission: The POSIX permission as a string (e.g. '755'). This parameter can
+                        either be a string or a callable returning a string.
+            recursive: Set to True to recursively change subfolders and files
+                       if a path is pointing to a directory. This parameter can either be
+                       a Boolean value or a callable returning a Boolean value.
+            only_dirs: Set to True to only set the permission for directories and
+                       not for files. This parameter can either be a Boolean value or
+                       a callable returning a Boolean value.
             force_run (bool): Run the task even if it is flagged to be skipped.
             propagate_skip (bool): Propagate the skip flag to the next task.
         """
         super().__init__(name, force_run, propagate_skip)
-        self._path = path
-        self._permission = permission
-        self._recursive = recursive
-        self._only_dirs = only_dirs
+        self.params = TaskParameters(
+            paths=paths,
+            permission=permission,
+            recursive=recursive,
+            only_dirs=only_dirs
+        )
 
     def run(self, data, data_store, signal, **kwargs):
         """ The main run method of the ChmodTask task.
@@ -54,37 +60,39 @@ class ChmodTask(BaseTask):
                     to the next task and optionally a list of successor tasks that
                     should be executed.
         """
-        path_perm = int(self._permission, 8)
+        params = self.params.eval(data, data_store)
+        path_perm = int(params.permission, 8)
 
-        if os.path.isdir(self._path):
-            if not os.path.isabs(self._path):
-                raise LightflowFilesystemPathError(
-                    'The specified path is not an absolute path')
+        for path in params.paths:
+            if os.path.isdir(path):
+                if not os.path.isabs(path):
+                    raise LightflowFilesystemPathError(
+                        'The specified path is not an absolute path')
 
-            try:
-                # set the permission for the root directory
-                os.chmod(self._path, path_perm)
+                try:
+                    # set the permission for the root directory
+                    os.chmod(path, path_perm)
 
-                # get the files and sub-directories
-                if self._recursive:
-                    dir_tree = os.walk(self._path, topdown=False)
-                else:
-                    dir_tree = [(self._path, [],
-                                 [f for f in os.listdir(self._path)
-                                  if os.path.isfile(os.path.join(self._path, f))])]
+                    # get the files and sub-directories
+                    if params.recursive:
+                        dir_tree = os.walk(path, topdown=False)
+                    else:
+                        dir_tree = [(path, [],
+                                     [f for f in os.listdir(path)
+                                      if os.path.isfile(os.path.join(path, f))])]
 
-                # iterate over the directory tree and set the POSIX permissions
-                for root, dirs, files in dir_tree:
-                    if not self._only_dirs:
-                        for name in files:
+                    # iterate over the directory tree and set the POSIX permissions
+                    for root, dirs, files in dir_tree:
+                        if not params.only_dirs:
+                            for name in files:
+                                os.chmod(os.path.join(root, name), path_perm)
+
+                        for name in dirs:
                             os.chmod(os.path.join(root, name), path_perm)
-
-                    for name in dirs:
-                        os.chmod(os.path.join(root, name), path_perm)
-            except OSError as e:
-                LightflowFilesystemChmodError(e)
-        else:
-            try:
-                os.chmod(self._path, path_perm)
-            except OSError as e:
-                LightflowFilesystemChmodError(e)
+                except OSError as e:
+                    LightflowFilesystemChmodError(e)
+            else:
+                try:
+                    os.chmod(path, path_perm)
+                except OSError as e:
+                    LightflowFilesystemChmodError(e)

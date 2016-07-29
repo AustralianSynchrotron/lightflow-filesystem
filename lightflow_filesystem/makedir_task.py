@@ -1,25 +1,28 @@
 import os
-from lightflow.models import BaseTask, Action
+
 from lightflow.logger import get_logger
+from lightflow.models import BaseTask, Action, TaskParameters
 from .exceptions import LightflowFilesystemPathError, LightflowFilesystemMkdirError
 
 logger = get_logger(__name__)
 
 
 class MakeDirTask(BaseTask):
-    """ Creates a new directory of it does not exist yet. """
-    def __init__(self, name, path, force_run=False, propagate_skip=True):
+    """ Creates one or more new directories if they do not exist yet. """
+    def __init__(self, name, paths, force_run=False, propagate_skip=True):
         """ Initialise the MakeDir task.
 
         Args:
             name (str): The name of the task.
-            path (str): The path of the directory that should be created. The path
-                        has to be an absolute path, otherwise an exception is thrown.
+            paths: A list of paths representing the directories that should
+                   be created. This parameter can either be a list of strings
+                   or a callable that returns a list of strings. The paths have
+                   to be absolute paths, otherwise an exception is thrown.
             force_run (bool): Run the task even if it is flagged to be skipped.
             propagate_skip (bool): Propagate the skip flag to the next task.
         """
         super().__init__(name, force_run, propagate_skip)
-        self._path = path
+        self.params = TaskParameters(paths=paths)
 
     def run(self, data, data_store, signal, **kwargs):
         """ The main run method of the MakeDir task.
@@ -34,39 +37,27 @@ class MakeDirTask(BaseTask):
                                  and sending of signals into easy to use methods.
 
         Raises:
-            AbsolutePathError: If the specified directory is not an absolute path.
+            AbsolutePathError: If the specified directories are not absolute paths.
 
         Returns:
             Action: An Action object containing the data that should be passed on
                     to the next task and optionally a list of successor tasks that
                     should be executed.
         """
-        self.makedirs(self._path)
+        params = self.params.eval(data, data_store)
+#
+        for path in params.paths:
+            if not os.path.isabs(path):
+                raise LightflowFilesystemPathError(
+                    'The specified path is not an absolute path')
+
+            if not os.path.exists(path):
+                try:
+                    os.makedirs(path)
+                except OSError as e:
+                    raise LightflowFilesystemMkdirError(e)
+
+            else:
+                logger.info('Directory {} already exists. Skip creation.'.format(path))
+
         return Action(data)
-
-    @staticmethod
-    def makedirs(path):
-        """ Creates a new directory if it doesn't exist yet.
-
-        This is a static method and thus also available for Python callable methods in
-        workflows not using the makedir task itself.
-
-        Args:
-            path (str): The path of the directory that should be created. The path
-                             has to be an absolute path, otherwise an exception is thrown.
-
-        Raises:
-            AbsolutePathError: If the specified directory is not an absolute path.
-        """
-        if not os.path.isabs(path):
-            raise LightflowFilesystemPathError(
-                'The specified path is not an absolute path')
-
-        if not os.path.exists(path):
-            try:
-                os.makedirs(path)
-            except OSError as e:
-                raise LightflowFilesystemMkdirError(e)
-
-        else:
-            logger.info('Directory {} already exists. Skip creation.'.format(path))

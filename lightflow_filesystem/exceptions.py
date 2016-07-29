@@ -11,6 +11,10 @@ class LightflowFilesystemCopyError(RuntimeError):
     pass
 
 
+class LightflowFilesystemMoveError(RuntimeError):
+    pass
+
+
 class LightflowFilesystemMkdirError(RuntimeError):
     pass
 
