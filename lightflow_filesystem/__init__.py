@@ -10,5 +10,6 @@ from .copy_task import CopyTask
 from .move_task import MoveTask
 from .chown_task import ChownTask
 from .chmod_task import ChmodTask
+from .glob_task import GlobTask
 
 __version__ = '0.1'
