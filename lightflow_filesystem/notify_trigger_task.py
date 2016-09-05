@@ -52,7 +52,8 @@ class NotifyTriggerTask(TriggerTask):
                             use_existing_files is activated and an existing file
                             is modified before the aggregated files are sent to the sub
                             dag.
-            use_existing_files: Use the existing file in path to initialise the file list.
+            use_existing_files: Use the existing files that are located in path for
+                                initialising the file list.
             on_file_create: Set to True to listen for file creation events.
             on_file_close: Set to True to listen for file closing events.
             on_file_delete: Set to True to listen for file deletion events.
