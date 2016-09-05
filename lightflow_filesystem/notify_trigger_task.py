@@ -151,9 +151,8 @@ class NotifyTriggerTask(TriggerTask):
                             (header.mask & mask):
                         new_file = os.path.join(watch_path.decode('utf-8'),
                                                 filename.decode('utf-8'))
-                        if not params.skip_duplicate:
-                            files.append(new_file)
-                        elif new_file not in files:
+                        if not params.skip_duplicate or (params.skip_duplicate and
+                                                         new_file not in files):
                             files.append(new_file)
 
                 # as soon as enough files have been aggregated call the sub dag
