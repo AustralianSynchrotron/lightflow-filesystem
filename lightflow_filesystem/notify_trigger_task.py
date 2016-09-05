@@ -170,9 +170,11 @@ class NotifyTriggerTask(TriggerTask):
 
                 # as soon as enough files have been aggregated call the sub dag
                 if len(files) >= params.aggregate:
-                    data[params.out_key] = files
-                    signal.run_dag(self._dag_name, data=data)
-                    del files[:]
+                    chunks = len(files) // params.aggregate
+                    for i in range(0, chunks):
+                        data[params.out_key] = files[0:params.aggregate]
+                        signal.run_dag(self._dag_name, data=data)
+                        del files[0:params.aggregate]
 
         finally:
             if not params.recursive:
