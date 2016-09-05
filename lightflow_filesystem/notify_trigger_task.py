@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import inotify.adapters as adapters
 import inotify.constants as constants
@@ -21,10 +22,11 @@ class NotifyTriggerTask(TriggerTask):
     DAG prior to its execution.
     """
     def __init__(self, name, dag_name, path, recursive=True,
-                 data_key=None, aggregate=None,
+                 out_key=None, aggregate=None, skip_duplicate=False,
+                 use_existing=False, exclude_mask=None,
                  on_file_create=False, on_file_close=True,
                  on_file_delete=False, on_file_move=False,
-                 event_trigger_time=None, signal_polling_rate=2,
+                 event_trigger_time=None, stop_polling_rate=2,
                  force_run=False, propagate_skip=True):
         """ Initialise the filesystem notify trigger task.
 
@@ -40,20 +42,31 @@ class NotifyTriggerTask(TriggerTask):
             recursive: Set to True to watch for file system changes in
                        subdirectories of the specified path. Keeps track of
                        the creation and deletion of subdirectories.
-            data_key: The key under which the list of files is being stored in the
+            out_key: The key under which the list of files is being stored in the
                       data that is passed to the DAG. The default is 'files'.
             aggregate: The number of events that are aggregated before the DAG
                        is triggered. Set to None or 1 to trigger on each file
                        event occurrence.
+            skip_duplicate: Skip duplicated file names. Duplicated entries can occur if
+                            the same file is modified before the list of files is handed
+                            to the sub dag. Another case is if the parameter
+                            use_existing is activated and an existing file
+                            is modified before the aggregated files are sent to the sub
+                            dag.
+            use_existing: Use the existing files that are located in path for
+                          initialising the file list.
+            exclude_mask: Specifies a regular expression that can be used to exclude
+                          files. For example if a detector creates temporary files that
+                          should not be sent to the sub dag.
             on_file_create: Set to True to listen for file creation events.
             on_file_close: Set to True to listen for file closing events.
             on_file_delete: Set to True to listen for file deletion events.
             on_file_move:  Set to True to listen for file move events.
             event_trigger_time: The waiting time between events in seconds. Set
                                 to None to turn off.
-            signal_polling_rate: The number of events after which a signal is sent
-                                 to the workflow to check whether the task
-                                 should be stopped.
+            stop_polling_rate: The number of events after which a signal is sent
+                               to the workflow to check whether the task
+                               should be stopped.
             force_run (bool): Run the task even if it is flagged to be skipped.
             propagate_skip (bool): Propagate the skip flag to the next task.
         """
@@ -63,10 +76,13 @@ class NotifyTriggerTask(TriggerTask):
         self.params = TaskParameters(
             path=path,
             recursive=recursive,
-            data_key=data_key if data_key is not None else 'files',
+            out_key=out_key if out_key is not None else 'files',
             aggregate=aggregate if aggregate is not None else 1,
+            skip_duplicate=skip_duplicate,
+            use_existing=use_existing,
+            exclude_mask=exclude_mask,
             event_trigger_time=event_trigger_time,
-            signal_polling_rate=signal_polling_rate,
+            stop_polling_rate=stop_polling_rate,
             on_file_create=on_file_create,
             on_file_close=on_file_close,
             on_file_delete=on_file_delete,
@@ -112,16 +128,23 @@ class NotifyTriggerTask(TriggerTask):
             notify = adapters.Inotify()
             notify.add_watch(params.path.encode('utf-8'))
 
+        # if requested, pre-fill the file list with existing files
         files = []
+        if params.use_existing:
+            for (dir_path, dir_names, filenames) in os.walk(params.path):
+                files.extend([os.path.join(dir_path, filename) for filename in filenames])
+                if not params.recursive:
+                    break
+
         polling_event_number = 0
         try:
             for event in notify.event_gen():
                 if params.event_trigger_time is not None:
                     time.sleep(params.event_trigger_time)
 
-                # check every _signal_polling_rate events the stop signal
+                # check every stop_polling_rate events the stop signal
                 polling_event_number += 1
-                if polling_event_number > params.signal_polling_rate:
+                if polling_event_number > params.stop_polling_rate:
                     polling_event_number = 0
                     if signal.is_stopped():
                         break
@@ -132,13 +155,24 @@ class NotifyTriggerTask(TriggerTask):
 
                     if (not header.mask & constants.IN_ISDIR) and\
                             (header.mask & mask):
-                        files.append(os.path.join(watch_path.decode('utf-8'),
-                                                  filename.decode('utf-8')))
+                        new_file = os.path.join(watch_path.decode('utf-8'),
+                                                filename.decode('utf-8'))
 
-                    if len(files) >= params.aggregate:
-                        data[params.data_key] = files
-                        signal.run_dag(self._dag_name, data=data)
-                        del files[:]
+                        add_file = not params.skip_duplicate or \
+                            (params.skip_duplicate and new_file not in files)
+
+                        if add_file and params.exclude_mask is not None:
+                            regex = re.compile(params.exclude_mask)
+                            add_file = regex.search(new_file) is None
+
+                        if add_file:
+                            files.append(new_file)
+
+                # as soon as enough files have been aggregated call the sub dag
+                if len(files) >= params.aggregate:
+                    data[params.out_key] = files
+                    signal.run_dag(self._dag_name, data=data)
+                    del files[:]
 
         finally:
             if not params.recursive:
