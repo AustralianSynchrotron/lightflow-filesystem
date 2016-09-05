@@ -10,7 +10,7 @@ logger = get_logger(__name__)
 
 class GlobTask(BaseTask):
     """ Returns list of files from path using glob. """
-    def __init__(self, name, paths, pattern='*', data_key='files', recursive=False,
+    def __init__(self, name, paths, pattern='*', out_key='files', recursive=False,
                  return_abs=True, force_run=False, propagate_skip=True):
         """
 
@@ -19,7 +19,7 @@ class GlobTask(BaseTask):
             paths (str/list): A path, or list of paths, to look in for files. The paths have
                               to be absolute paths, otherwise an exception is thrown.
             pattern (str): The glob style pattern to match when returning files.
-            data_key (str): The key under which the list of files is being stored in the
+            out_key (str): The key under which the list of files is being stored in the
                             data that is passed to the DAG. The default is 'files'.
             recursive (bool): Recursively look for files. Use ** to match any files and zero or
                               more directories and subdirectories. May slow things down if lots of files.
@@ -32,7 +32,7 @@ class GlobTask(BaseTask):
         super().__init__(name, force_run, propagate_skip)
         self.params = TaskParameters(paths=paths,
                                      pattern=pattern,
-                                     data_key=data_key,
+                                     out_key=out_key,
                                      recursive=recursive,
                                      return_abs=return_abs)
 
@@ -60,7 +60,7 @@ class GlobTask(BaseTask):
         if not all([isabs(path) for path in params.paths]):
             raise LightflowFilesystemPathError('The specified path is not an absolute path')
 
-        data[params.data_key] = [file if params.return_abs else basename(file) for path in params.paths
-                                 for file in glob(pjoin(path, params.pattern), recursive=params.recursive)]
+        data[params.out_key] = [file if params.return_abs else basename(file) for path in params.paths
+                                for file in glob(pjoin(path, params.pattern), recursive=params.recursive)]
 
         return Action(data)
