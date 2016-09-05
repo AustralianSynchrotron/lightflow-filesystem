@@ -24,7 +24,7 @@ class NotifyTriggerTask(TriggerTask):
                  out_key=None, aggregate=None,
                  on_file_create=False, on_file_close=True,
                  on_file_delete=False, on_file_move=False,
-                 event_trigger_time=None, signal_polling_rate=2,
+                 event_trigger_time=None, stop_polling_rate=2,
                  force_run=False, propagate_skip=True):
         """ Initialise the filesystem notify trigger task.
 
@@ -51,9 +51,9 @@ class NotifyTriggerTask(TriggerTask):
             on_file_move:  Set to True to listen for file move events.
             event_trigger_time: The waiting time between events in seconds. Set
                                 to None to turn off.
-            signal_polling_rate: The number of events after which a signal is sent
-                                 to the workflow to check whether the task
-                                 should be stopped.
+            stop_polling_rate: The number of events after which a signal is sent
+                               to the workflow to check whether the task
+                               should be stopped.
             force_run (bool): Run the task even if it is flagged to be skipped.
             propagate_skip (bool): Propagate the skip flag to the next task.
         """
@@ -66,7 +66,7 @@ class NotifyTriggerTask(TriggerTask):
             out_key=out_key if out_key is not None else 'files',
             aggregate=aggregate if aggregate is not None else 1,
             event_trigger_time=event_trigger_time,
-            signal_polling_rate=signal_polling_rate,
+            stop_polling_rate=stop_polling_rate,
             on_file_create=on_file_create,
             on_file_close=on_file_close,
             on_file_delete=on_file_delete,
@@ -119,9 +119,9 @@ class NotifyTriggerTask(TriggerTask):
                 if params.event_trigger_time is not None:
                     time.sleep(params.event_trigger_time)
 
-                # check every _signal_polling_rate events the stop signal
+                # check every stop_polling_rate events the stop signal
                 polling_event_number += 1
-                if polling_event_number > params.signal_polling_rate:
+                if polling_event_number > params.stop_polling_rate:
                     polling_event_number = 0
                     if signal.is_stopped():
                         break
