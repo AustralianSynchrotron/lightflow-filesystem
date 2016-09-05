@@ -21,7 +21,7 @@ class NotifyTriggerTask(TriggerTask):
     DAG prior to its execution.
     """
     def __init__(self, name, dag_name, path, recursive=True,
-                 data_key=None, aggregate=None,
+                 out_key=None, aggregate=None,
                  on_file_create=False, on_file_close=True,
                  on_file_delete=False, on_file_move=False,
                  event_trigger_time=None, signal_polling_rate=2,
@@ -40,7 +40,7 @@ class NotifyTriggerTask(TriggerTask):
             recursive: Set to True to watch for file system changes in
                        subdirectories of the specified path. Keeps track of
                        the creation and deletion of subdirectories.
-            data_key: The key under which the list of files is being stored in the
+            out_key: The key under which the list of files is being stored in the
                       data that is passed to the DAG. The default is 'files'.
             aggregate: The number of events that are aggregated before the DAG
                        is triggered. Set to None or 1 to trigger on each file
@@ -63,7 +63,7 @@ class NotifyTriggerTask(TriggerTask):
         self.params = TaskParameters(
             path=path,
             recursive=recursive,
-            data_key=data_key if data_key is not None else 'files',
+            out_key=out_key if out_key is not None else 'files',
             aggregate=aggregate if aggregate is not None else 1,
             event_trigger_time=event_trigger_time,
             signal_polling_rate=signal_polling_rate,
@@ -136,7 +136,7 @@ class NotifyTriggerTask(TriggerTask):
                                                   filename.decode('utf-8')))
 
                     if len(files) >= params.aggregate:
-                        data[params.data_key] = files
+                        data[params.out_key] = files
                         signal.run_dag(self._dag_name, data=data)
                         del files[:]
 
