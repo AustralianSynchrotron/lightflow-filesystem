@@ -143,11 +143,12 @@ class NotifyTriggerTask(TriggerTask):
                 if not params.recursive:
                     break
 
-        if params.flush_existing and len(files) > 0:
             files = [file for file in files if regex.search(file) is None]
-            data[params.out_key] = files
-            signal.run_dag(self._dag_name, data=data)
-            del files[:]
+
+            if params.flush_existing and len(files) > 0:
+                data[params.out_key] = files
+                signal.run_dag(self._dag_name, data=data)
+                del files[:]
 
         polling_event_number = 0
         try:
