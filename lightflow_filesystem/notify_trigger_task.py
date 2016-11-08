@@ -23,7 +23,7 @@ class NotifyTriggerTask(TriggerTask):
     """
     def __init__(self, name, dag_name, path, recursive=True,
                  out_key=None, aggregate=None, skip_duplicate=False,
-                 use_existing=False, exclude_mask=None,
+                 use_existing=False, flush_existing=True, exclude_mask=None,
                  on_file_create=False, on_file_close=True,
                  on_file_delete=False, on_file_move=False,
                  event_trigger_time=None, stop_polling_rate=2,
@@ -55,6 +55,9 @@ class NotifyTriggerTask(TriggerTask):
                             dag.
             use_existing: Use the existing files that are located in path for
                           initialising the file list.
+            flush_existing: If use_existing is True, then flush all existing files without
+                            regard to the aggregation setting. I.e,. all existing files
+                            sent saved to data and sent to target workflow.
             exclude_mask: Specifies a regular expression that can be used to exclude
                           files. For example if a detector creates temporary files that
                           should not be sent to the sub dag.
@@ -80,6 +83,7 @@ class NotifyTriggerTask(TriggerTask):
             aggregate=aggregate if aggregate is not None else 1,
             skip_duplicate=skip_duplicate,
             use_existing=use_existing,
+            flush_existing=flush_existing,
             exclude_mask=exclude_mask,
             event_trigger_time=event_trigger_time,
             stop_polling_rate=stop_polling_rate,
@@ -128,6 +132,9 @@ class NotifyTriggerTask(TriggerTask):
             notify = adapters.Inotify()
             notify.add_watch(params.path.encode('utf-8'))
 
+        # setup regex
+        regex = re.compile(params.exclude_mask)
+
         # if requested, pre-fill the file list with existing files
         files = []
         if params.use_existing:
@@ -135,6 +142,13 @@ class NotifyTriggerTask(TriggerTask):
                 files.extend([os.path.join(dir_path, filename) for filename in filenames])
                 if not params.recursive:
                     break
+
+            files = [file for file in files if regex.search(file) is None]
+
+            if params.flush_existing and len(files) > 0:
+                data[params.out_key] = files
+                signal.run_dag(self._dag_name, data=data)
+                del files[:]
 
         polling_event_number = 0
         try:
@@ -162,7 +176,6 @@ class NotifyTriggerTask(TriggerTask):
                             (params.skip_duplicate and new_file not in files)
 
                         if add_file and params.exclude_mask is not None:
-                            regex = re.compile(params.exclude_mask)
                             add_file = regex.search(new_file) is None
 
                         if add_file:
