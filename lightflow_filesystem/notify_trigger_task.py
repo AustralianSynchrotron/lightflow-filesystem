@@ -133,7 +133,10 @@ class NotifyTriggerTask(TriggerTask):
             notify.add_watch(params.path.encode('utf-8'))
 
         # setup regex
-        regex = re.compile(params.exclude_mask)
+        if isinstance(params.exclude_mask, str):
+            regex = re.compile(params.exclude_mask)
+        else:
+            regex = None
 
         # if requested, pre-fill the file list with existing files
         files = []
@@ -143,7 +146,8 @@ class NotifyTriggerTask(TriggerTask):
                 if not params.recursive:
                     break
 
-            files = [file for file in files if regex.search(file) is None]
+            if regex is not None:
+                files = [file for file in files if regex.search(file) is None]
 
             if params.flush_existing and len(files) > 0:
                 data[params.out_key] = files
@@ -175,7 +179,7 @@ class NotifyTriggerTask(TriggerTask):
                         add_file = not params.skip_duplicate or \
                             (params.skip_duplicate and new_file not in files)
 
-                        if add_file and params.exclude_mask is not None:
+                        if add_file and regex is not None:
                             add_file = regex.search(new_file) is None
 
                         if add_file:
