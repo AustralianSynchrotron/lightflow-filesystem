@@ -11,5 +11,6 @@ from .move_task import MoveTask
 from .chown_task import ChownTask
 from .chmod_task import ChmodTask
 from .glob_task import GlobTask
+from .newline_trigger_task import NewLineTriggerTask
 
 __version__ = '0.1'
