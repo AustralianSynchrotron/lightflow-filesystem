@@ -2,15 +2,14 @@ import os
 import time
 
 from lightflow.logger import get_logger
-from lightflow.tasks import TriggerTask
-from lightflow.models import TaskParameters
+from lightflow.models import BaseTask, TaskParameters
 from .exceptions import LightflowFilesystemPathError
 
 
 logger = get_logger(__name__)
 
 
-class NewLineTriggerTask(TriggerTask):
+class NewLineTriggerTask(BaseTask):
     """ Triggers the execution of a DAG upon a new line added to a file.
 
     This trigger task watches a specified file for new line. After having
@@ -52,10 +51,11 @@ class NewLineTriggerTask(TriggerTask):
             force_run (bool): Run the task even if it is flagged to be skipped.
             propagate_skip (bool): Propagate the skip flag to the next task.
         """
-        super().__init__(name, dag_name, force_run, propagate_skip)
+        super().__init__(name, force_run, propagate_skip)
 
         # set the tasks's parameters
         self.params = TaskParameters(
+            dag_name=dag_name,
             path=path,
             out_key=out_key if out_key is not None else 'lines',
             aggregate=aggregate if aggregate is not None else 1,
@@ -64,7 +64,6 @@ class NewLineTriggerTask(TriggerTask):
             event_trigger_time=event_trigger_time,
             stop_polling_rate=stop_polling_rate,
         )
-
 
     def run(self, data, data_store, signal, **kwargs):
         """ The main run method of the NotifyTriggerTask task.
@@ -102,7 +101,7 @@ class NewLineTriggerTask(TriggerTask):
             num_read_lines = len(lines)
             if params.flush_existing and num_read_lines > 0:
                 data[params.out_key] = lines
-                signal.run_dag(self._dag_name, data=data)
+                signal.run_dag(params.dag_name, data=data)
                 del lines[:]
 
         polling_event_number = 0
@@ -138,7 +137,7 @@ class NewLineTriggerTask(TriggerTask):
                     chunks = len(lines) // params.aggregate
                     for i in range(0, chunks):
                         data[params.out_key] = lines[0:params.aggregate]
-                        signal.run_dag(self._dag_name, data=data)
+                        signal.run_dag(params.dag_name, data=data)
                         del lines[0:params.aggregate]
         finally:
             file.close()

@@ -5,15 +5,14 @@ import inotify.adapters as adapters
 import inotify.constants as constants
 
 from lightflow.logger import get_logger
-from lightflow.tasks import TriggerTask
-from lightflow.models import TaskParameters
+from lightflow.models import BaseTask, TaskParameters
 from .exceptions import LightflowFilesystemPathError
 
 
 logger = get_logger(__name__)
 
 
-class NotifyTriggerTask(TriggerTask):
+class NotifyTriggerTask(BaseTask):
     """ Triggers the execution of a DAG upon file changes in a directory.
 
     This trigger task watches a specified directory for file changes. After having
@@ -73,10 +72,11 @@ class NotifyTriggerTask(TriggerTask):
             force_run (bool): Run the task even if it is flagged to be skipped.
             propagate_skip (bool): Propagate the skip flag to the next task.
         """
-        super().__init__(name, dag_name, force_run, propagate_skip)
+        super().__init__(name, force_run, propagate_skip)
 
         # set the tasks's parameters
         self.params = TaskParameters(
+            dag_name=dag_name,
             path=path,
             recursive=recursive,
             out_key=out_key if out_key is not None else 'files',
@@ -151,7 +151,7 @@ class NotifyTriggerTask(TriggerTask):
 
             if params.flush_existing and len(files) > 0:
                 data[params.out_key] = files
-                signal.run_dag(self._dag_name, data=data)
+                signal.run_dag(params.dag_name, data=data)
                 del files[:]
 
         polling_event_number = 0
@@ -190,7 +190,7 @@ class NotifyTriggerTask(TriggerTask):
                     chunks = len(files) // params.aggregate
                     for i in range(0, chunks):
                         data[params.out_key] = files[0:params.aggregate]
-                        signal.run_dag(self._dag_name, data=data)
+                        signal.run_dag(params.dag_name, data=data)
                         del files[0:params.aggregate]
 
         finally:
