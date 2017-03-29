@@ -11,7 +11,7 @@ logger = get_logger(__name__)
 class GlobTask(BaseTask):
     """ Returns list of files from path using glob. """
     def __init__(self, name, paths, pattern='*', out_key='files', recursive=False,
-                 return_abs=True, force_run=False, propagate_skip=True):
+                 return_abs=True, *, force_run=False, propagate_skip=True):
         """
 
         Args:
@@ -29,22 +29,22 @@ class GlobTask(BaseTask):
         """
         if isinstance(paths, str):
             paths = [paths]
-        super().__init__(name, force_run, propagate_skip)
+        super().__init__(name, force_run=force_run, propagate_skip=propagate_skip)
         self.params = TaskParameters(paths=paths,
                                      pattern=pattern,
                                      out_key=out_key,
                                      recursive=recursive,
                                      return_abs=return_abs)
 
-    def run(self, data, data_store, signal, **kwargs):
+    def run(self, data, store, signal, **kwargs):
         """
 
         Args:
             data (MultiTaskData): The data object that has been passed from the
                                   predecessor task.
-            data_store (DataStore): The persistent data store object that allows the task
-                                    to store data for access across the current workflow
-                                    run.
+            store (DataStoreDocument): The persistent data store object that allows the
+                                       task to store data for access across the current
+                                       workflow run.
             signal (TaskSignal): The signal object for tasks. It wraps the construction
                                  and sending of signals into easy to use methods.
 
@@ -56,7 +56,7 @@ class GlobTask(BaseTask):
                     to the next task and optionally a list of successor tasks that
                     should be executed.
         """
-        params = self.params
+        params = self.params.eval(data, store)
         if not all([isabs(path) for path in params.paths]):
             raise LightflowFilesystemPathError('The specified path is not an absolute path')
 

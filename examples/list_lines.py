@@ -4,10 +4,10 @@ from lightflow.tasks import PythonTask
 from lightflow_filesystem import NewLineTriggerTask
 
 
-def print_me(name, data, data_store, signal, **kwargs):
+def print_me(name, data, store, signal, **kwargs):
     print(data['lines'])
 
-print_task = PythonTask('print_task', python_callable=print_me)
+print_task = PythonTask('print_task', callable=print_me)
 
 print_dag = Dag('print_dag', autostart=False)
 print_dag.define({print_task: None})

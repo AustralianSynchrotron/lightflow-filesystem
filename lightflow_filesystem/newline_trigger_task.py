@@ -20,7 +20,7 @@ class NewLineTriggerTask(BaseTask):
     def __init__(self, name, dag_name, path,
                  out_key=None, aggregate=None,
                  use_existing=False, flush_existing=True,
-                 event_trigger_time=0.5, stop_polling_rate=2,
+                 event_trigger_time=0.5, stop_polling_rate=2, *,
                  force_run=False, propagate_skip=True):
         """ Initialise the filesystem notify trigger task.
 
@@ -51,7 +51,7 @@ class NewLineTriggerTask(BaseTask):
             force_run (bool): Run the task even if it is flagged to be skipped.
             propagate_skip (bool): Propagate the skip flag to the next task.
         """
-        super().__init__(name, force_run, propagate_skip)
+        super().__init__(name, force_run=force_run, propagate_skip=propagate_skip)
 
         # set the tasks's parameters
         self.params = TaskParameters(
@@ -65,15 +65,15 @@ class NewLineTriggerTask(BaseTask):
             stop_polling_rate=stop_polling_rate,
         )
 
-    def run(self, data, data_store, signal, **kwargs):
+    def run(self, data, store, signal, **kwargs):
         """ The main run method of the NotifyTriggerTask task.
 
         Args:
             data (MultiTaskData): The data object that has been passed from the
                                   predecessor task.
-            data_store (DataStore): The persistent data store object that allows the task
-                                    to store data for access across the current workflow
-                                    run.
+            store (DataStoreDocument): The persistent data store object that allows the
+                                       task to store data for access across the current
+                                       workflow run.
             signal (TaskSignal): The signal object for tasks. It wraps the construction
                                  and sending of signals into easy to use methods.
 
@@ -85,7 +85,7 @@ class NewLineTriggerTask(BaseTask):
                     to the next task and optionally a list of successor tasks that
                     should be executed.
         """
-        params = self.params.eval(data, data_store)
+        params = self.params.eval(data, store)
 
         if not os.path.isabs(params.path):
             raise LightflowFilesystemPathError(
@@ -101,7 +101,7 @@ class NewLineTriggerTask(BaseTask):
             num_read_lines = len(lines)
             if params.flush_existing and num_read_lines > 0:
                 data[params.out_key] = lines
-                signal.run_dag(params.dag_name, data=data)
+                signal.start_dag(params.dag_name, data=data)
                 del lines[:]
 
         polling_event_number = 0
@@ -129,7 +129,7 @@ class NewLineTriggerTask(BaseTask):
                 polling_event_number += 1
                 if polling_event_number > params.stop_polling_rate:
                     polling_event_number = 0
-                    if signal.is_stopped():
+                    if signal.is_stopped:
                         break
 
                 # as soon as enough line have been aggregated call the sub dag
@@ -137,7 +137,7 @@ class NewLineTriggerTask(BaseTask):
                     chunks = len(lines) // params.aggregate
                     for i in range(0, chunks):
                         data[params.out_key] = lines[0:params.aggregate]
-                        signal.run_dag(params.dag_name, data=data)
+                        signal.start_dag(params.dag_name, data=data)
                         del lines[0:params.aggregate]
         finally:
             file.close()

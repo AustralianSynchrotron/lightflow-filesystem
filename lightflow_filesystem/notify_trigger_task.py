@@ -25,7 +25,7 @@ class NotifyTriggerTask(BaseTask):
                  use_existing=False, flush_existing=True, exclude_mask=None,
                  on_file_create=False, on_file_close=True,
                  on_file_delete=False, on_file_move=False,
-                 event_trigger_time=None, stop_polling_rate=2,
+                 event_trigger_time=None, stop_polling_rate=2, *,
                  force_run=False, propagate_skip=True):
         """ Initialise the filesystem notify trigger task.
 
@@ -72,7 +72,7 @@ class NotifyTriggerTask(BaseTask):
             force_run (bool): Run the task even if it is flagged to be skipped.
             propagate_skip (bool): Propagate the skip flag to the next task.
         """
-        super().__init__(name, force_run, propagate_skip)
+        super().__init__(name, force_run=force_run, propagate_skip=propagate_skip)
 
         # set the tasks's parameters
         self.params = TaskParameters(
@@ -93,15 +93,15 @@ class NotifyTriggerTask(BaseTask):
             on_file_move=on_file_move
         )
 
-    def run(self, data, data_store, signal, **kwargs):
+    def run(self, data, store, signal, **kwargs):
         """ The main run method of the NotifyTriggerTask task.
 
         Args:
             data (MultiTaskData): The data object that has been passed from the
                                   predecessor task.
-            data_store (DataStore): The persistent data store object that allows the task
-                                    to store data for access across the current workflow
-                                    run.
+            store (DataStoreDocument): The persistent data store object that allows the
+                                       task to store data for access across the current
+                                       workflow run.
             signal (TaskSignal): The signal object for tasks. It wraps the construction
                                  and sending of signals into easy to use methods.
 
@@ -113,7 +113,7 @@ class NotifyTriggerTask(BaseTask):
                     to the next task and optionally a list of successor tasks that
                     should be executed.
         """
-        params = self.params.eval(data, data_store)
+        params = self.params.eval(data, store)
 
         # build notification mask
         on_file_create = constants.IN_CREATE if params.on_file_create else 0x00000000
@@ -151,7 +151,7 @@ class NotifyTriggerTask(BaseTask):
 
             if params.flush_existing and len(files) > 0:
                 data[params.out_key] = files
-                signal.run_dag(params.dag_name, data=data)
+                signal.start_dag(params.dag_name, data=data)
                 del files[:]
 
         polling_event_number = 0
@@ -164,7 +164,7 @@ class NotifyTriggerTask(BaseTask):
                 polling_event_number += 1
                 if polling_event_number > params.stop_polling_rate:
                     polling_event_number = 0
-                    if signal.is_stopped():
+                    if signal.is_stopped:
                         break
 
                 # in case of an event check whether it matches the mask and call a dag
@@ -190,7 +190,7 @@ class NotifyTriggerTask(BaseTask):
                     chunks = len(files) // params.aggregate
                     for i in range(0, chunks):
                         data[params.out_key] = files[0:params.aggregate]
-                        signal.run_dag(params.dag_name, data=data)
+                        signal.start_dag(params.dag_name, data=data)
                         del files[0:params.aggregate]
 
         finally:
