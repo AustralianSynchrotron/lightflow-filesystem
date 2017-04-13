@@ -37,10 +37,7 @@ class NotifyTriggerTask(BaseTask):
                   The path has to be an absolute path, otherwise an exception is thrown.
             callback (callable): A callable object that is called with the list of files
                                  that have changed. The function definition is
-                                 def callback(files, data, store, signal, context). If
-                                 the content of the data object was changed, the function
-                                 has to return the new data in order to pass it on to
-                                 the next task.
+                                 def callback(files, data, store, signal, context).
             recursive (bool): Set to True to watch for file system changes in
                               subdirectories of the specified path. Keeps track of
                               the creation and deletion of subdirectories.

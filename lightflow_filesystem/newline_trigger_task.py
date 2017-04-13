@@ -31,10 +31,7 @@ class NewLineTriggerTask(BaseTask):
                   The path has to be an absolute path, otherwise an exception is thrown.
             callback (callable): A callable object that is called with the list of lines
                                  that have changed. The function definition is
-                                 def callback(lines, data, store, signal, context). If
-                                 the content of the data object was changed, the function
-                                 has to return the new data in order to pass it on to
-                                 the next task.
+                                 def callback(lines, data, store, signal, context).
             aggregate (int, None): The number of lines that are aggregated before the
                                    callback is called. Set to None or 1 to trigger
                                    on each new line event occurrence.
