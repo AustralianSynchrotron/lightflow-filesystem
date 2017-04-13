@@ -76,11 +76,6 @@ class NewLineTriggerTask(BaseTask):
 
         Raises:
             LightflowFilesystemPathError: If the specified path is not absolute.
-
-        Returns:
-            Action: An Action object containing the data that should be passed on
-                    to the next task and optionally a list of successor tasks that
-                    should be executed.
         """
         params = self.params.eval(data, store)
 
