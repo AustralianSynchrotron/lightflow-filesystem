@@ -1,4 +1,4 @@
-""" Example workflow demonstrating the filesystem notification trigger.
+""" Workflow demonstrating the filesystem notification trigger
 
 The workflow defines two DAGs. The DAG 'notify_task' creates the three directories
 
@@ -32,7 +32,12 @@ from lightflow_filesystem import (MakeDirTask, NotifyTriggerTask,
                                   CopyTask, MoveTask, ChmodTask)
 
 
-# File/Directory notification DAG
+# the callback function and definition of the file/directory notification dag.
+def start_file_dag(files, data, store, signal, context):
+    data['files'] = files
+    signal.start_dag('files_dag', data=data)
+
+
 mkdir_task = MakeDirTask(name='mkdir_task',
                          paths=['/tmp/lightflow_test/input',
                                 '/tmp/lightflow_test/output',
@@ -40,9 +45,8 @@ mkdir_task = MakeDirTask(name='mkdir_task',
 
 notify_task = NotifyTriggerTask(name='notify_task',
                                 path='/tmp/lightflow_test/input',
-                                dag_name='files_dag',
+                                callback=start_file_dag,
                                 recursive=True,
-                                out_key='files',
                                 aggregate=5,
                                 use_existing=False,
                                 skip_duplicate=False,
@@ -53,26 +57,30 @@ notify_task = NotifyTriggerTask(name='notify_task',
                                 )
 
 notify_dag = Dag('notify_dag')
-notify_dag.define({mkdir_task: [notify_task]})
+notify_dag.define({
+    mkdir_task: notify_task
+})
 
 
-# File handling DAG
+# define the file handling dag.
 copy_backup_task = CopyTask(name='copy_backup_task',
-                            sources=lambda data, data_store: data['files'],
+                            sources=lambda data, store: data['files'],
                             destination='/tmp/lightflow_test/backup')
 
 chmod_backup_task = ChmodTask(name='chmod_backup_task',
-                              paths=lambda data, data_store: [os.path.join('/tmp/lightflow_test/backup', os.path.basename(f)) for f in data['files']],
+                              paths=lambda data, store: [os.path.join('/tmp/lightflow_test/backup', os.path.basename(f)) for f in data['files']],
                               permission='400')
 
 move_output_task = MoveTask(name='move_output_task',
-                            sources=lambda data, data_store: data['files'],
+                            sources=lambda data, store: data['files'],
                             destination='/tmp/lightflow_test/output')
 
 chmod_output_task = ChmodTask(name='chmod_output_task',
-                              paths=lambda data, data_store: [os.path.join('/tmp/lightflow_test/output', os.path.basename(f)) for f in data['files']],
+                              paths=lambda data, store: [os.path.join('/tmp/lightflow_test/output', os.path.basename(f)) for f in data['files']],
                               permission='700')
 
 files_dag = Dag('files_dag', autostart=False)
-files_dag.define({copy_backup_task: [chmod_backup_task, move_output_task],
-                  move_output_task: chmod_output_task})
+files_dag.define({
+    copy_backup_task: [chmod_backup_task, move_output_task],
+    move_output_task: chmod_output_task
+})

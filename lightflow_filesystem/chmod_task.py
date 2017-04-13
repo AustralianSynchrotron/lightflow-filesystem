@@ -39,7 +39,7 @@ class ChmodTask(BaseTask):
             only_dirs=only_dirs
         )
 
-    def run(self, data, store, signal, **kwargs):
+    def run(self, data, store, signal, context, **kwargs):
         """ The main run method of the ChmodTask task.
 
         Args:
@@ -50,6 +50,7 @@ class ChmodTask(BaseTask):
                                        workflow run.
             signal (TaskSignal): The signal object for tasks. It wraps the construction
                                  and sending of signals into easy to use methods.
+            context (TaskContext): The context in which the tasks runs.
 
         Raises:
             LightflowFilesystemPathError: If the specified path is not absolute.

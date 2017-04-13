@@ -13,4 +13,4 @@ from .chmod_task import ChmodTask
 from .glob_task import GlobTask
 from .newline_trigger_task import NewLineTriggerTask
 
-__version__ = '0.2'
+__version__ = '1.0.0'

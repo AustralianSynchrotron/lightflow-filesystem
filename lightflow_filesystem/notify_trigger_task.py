@@ -13,62 +13,63 @@ logger = get_logger(__name__)
 
 
 class NotifyTriggerTask(BaseTask):
-    """ Triggers the execution of a DAG upon file changes in a directory.
+    """ Triggers a callback function upon file changes in a directory.
 
     This trigger task watches a specified directory for file changes. After having
-    aggregated a given number of file changes it sends a signal to the parent workflow to
-    execute the specified DAG. A list of the files that were changed is given to the
-    DAG prior to its execution.
+    aggregated a given number of file changes it calls the provided callback function
+    with a list of the files that were changed.
     """
-    def __init__(self, name, dag_name, path, recursive=True,
-                 out_key=None, aggregate=None, skip_duplicate=False,
+    def __init__(self, name, path, callback,
+                 recursive=True, aggregate=None, skip_duplicate=False,
                  use_existing=False, flush_existing=True, exclude_mask=None,
                  on_file_create=False, on_file_close=True,
                  on_file_delete=False, on_file_move=False,
                  event_trigger_time=None, stop_polling_rate=2, *,
                  force_run=False, propagate_skip=True):
-        """ Initialise the filesystem notify trigger task.
+        """ Initialize the filesystem notify trigger task.
 
-        All task parameters except the name, force_run and propagate_skip can either be
-        their native type or a callable returning the native type.
+        All task parameters except the name, callback, force_run and propagate_skip can
+        either be their native type or a callable returning the native type.
 
         Args:
             name (str): The name of the task.
-            dag_name: The name of the DAG that should be executed after the
-                      specified number of file change events has occurred.
             path: The path to the directory that should be watched for filesystem changes.
                   The path has to be an absolute path, otherwise an exception is thrown.
-            recursive: Set to True to watch for file system changes in
-                       subdirectories of the specified path. Keeps track of
-                       the creation and deletion of subdirectories.
-            out_key: The key under which the list of files is being stored in the
-                      data that is passed to the DAG. The default is 'files'.
-            aggregate: The number of events that are aggregated before the DAG
-                       is triggered. Set to None or 1 to trigger on each file
-                       event occurrence.
-            skip_duplicate: Skip duplicated file names. Duplicated entries can occur if
-                            the same file is modified before the list of files is handed
-                            to the sub dag. Another case is if the parameter
-                            use_existing is activated and an existing file
-                            is modified before the aggregated files are sent to the sub
-                            dag.
-            use_existing: Use the existing files that are located in path for
-                          initialising the file list.
-            flush_existing: If use_existing is True, then flush all existing files without
-                            regard to the aggregation setting. I.e,. all existing files
-                            sent saved to data and sent to target workflow.
-            exclude_mask: Specifies a regular expression that can be used to exclude
-                          files. For example if a detector creates temporary files that
-                          should not be sent to the sub dag.
-            on_file_create: Set to True to listen for file creation events.
-            on_file_close: Set to True to listen for file closing events.
-            on_file_delete: Set to True to listen for file deletion events.
-            on_file_move:  Set to True to listen for file move events.
-            event_trigger_time: The waiting time between events in seconds. Set
-                                to None to turn off.
-            stop_polling_rate: The number of events after which a signal is sent
-                               to the workflow to check whether the task
-                               should be stopped.
+            callback (callable): A callable object that is called with the list of files
+                                 that have changed. The function definition is
+                                 def callback(files, data, store, signal, context). If
+                                 the content of the data object was changed, the function
+                                 has to return the new data in order to pass it on to
+                                 the next task.
+            recursive (bool): Set to True to watch for file system changes in
+                              subdirectories of the specified path. Keeps track of
+                              the creation and deletion of subdirectories.
+            aggregate (int, None): The number of events that are aggregated before the
+                                   callback function is called. Set to None or 1 to
+                                   trigger on each file event occurrence.
+            skip_duplicate (bool): Skip duplicated file names. Duplicated entries can
+                                   occur if the same file is modified before the list
+                                   of files is handed to the callback. Another case
+                                   is if the parameter 'use_existing' is activated and
+                                   an existing file is modified before the aggregated
+                                   files are sent to the callback function.
+            use_existing (bool): Use the existing files that are located in path for
+                                 initializing the file list.
+            flush_existing (bool): If 'use_existing' is True, then flush all existing
+                                   files without regard to the aggregation setting.
+                                   I.e,. all existing files sent to the callback.
+            exclude_mask (str): Specifies a regular expression that can be used to exclude
+                                files. For example if a detector creates temporary files
+                                that should not be sent to the callback function.
+            on_file_create (bool): Set to True to listen for file creation events.
+            on_file_close (bool): Set to True to listen for file closing events.
+            on_file_delete (bool): Set to True to listen for file deletion events.
+            on_file_move (bool):  Set to True to listen for file move events.
+            event_trigger_time (float, None): The waiting time between events in seconds.
+                                              Set to None to turn off.
+            stop_polling_rate (float): The number of events after which a signal is sent
+                                       to the workflow to check whether the task
+                                       should be stopped.
             force_run (bool): Run the task even if it is flagged to be skipped.
             propagate_skip (bool): Propagate the skip flag to the next task.
         """
@@ -76,10 +77,8 @@ class NotifyTriggerTask(BaseTask):
 
         # set the tasks's parameters
         self.params = TaskParameters(
-            dag_name=dag_name,
             path=path,
             recursive=recursive,
-            out_key=out_key if out_key is not None else 'files',
             aggregate=aggregate if aggregate is not None else 1,
             skip_duplicate=skip_duplicate,
             use_existing=use_existing,
@@ -92,8 +91,9 @@ class NotifyTriggerTask(BaseTask):
             on_file_delete=on_file_delete,
             on_file_move=on_file_move
         )
+        self._callback = callback
 
-    def run(self, data, store, signal, **kwargs):
+    def run(self, data, store, signal, context, **kwargs):
         """ The main run method of the NotifyTriggerTask task.
 
         Args:
@@ -104,6 +104,7 @@ class NotifyTriggerTask(BaseTask):
                                        workflow run.
             signal (TaskSignal): The signal object for tasks. It wraps the construction
                                  and sending of signals into easy to use methods.
+            context (TaskContext): The context in which the tasks runs.
 
         Raises:
             LightflowFilesystemPathError: If the specified path is not absolute.
@@ -150,8 +151,8 @@ class NotifyTriggerTask(BaseTask):
                 files = [file for file in files if regex.search(file) is None]
 
             if params.flush_existing and len(files) > 0:
-                data[params.out_key] = files
-                signal.start_dag(params.dag_name, data=data)
+                if self._callback is not None:
+                    self._callback(files, data.copy(), store, signal, context)
                 del files[:]
 
         polling_event_number = 0
@@ -189,8 +190,9 @@ class NotifyTriggerTask(BaseTask):
                 if len(files) >= params.aggregate:
                     chunks = len(files) // params.aggregate
                     for i in range(0, chunks):
-                        data[params.out_key] = files[0:params.aggregate]
-                        signal.start_dag(params.dag_name, data=data)
+                        if self._callback is not None:
+                            self._callback(files[0:params.aggregate], data.copy(),
+                                           store, signal, context)
                         del files[0:params.aggregate]
 
         finally:

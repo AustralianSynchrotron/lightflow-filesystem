@@ -10,44 +10,44 @@ logger = get_logger(__name__)
 
 
 class NewLineTriggerTask(BaseTask):
-    """ Triggers the execution of a DAG upon a new line added to a file.
+    """ Triggers a callback function upon a new line added to a file.
 
     This trigger task watches a specified file for new line. After having
-    aggregated a given number of lines changes it sends a signal to the parent workflow to
-    execute the specified DAG. A list of lines that were added is given to the
-    DAG prior to its execution.
+    aggregated a given number of line changes it calls the provided callback function with
+    a list of lines that were added.
     """
-    def __init__(self, name, dag_name, path,
-                 out_key=None, aggregate=None,
-                 use_existing=False, flush_existing=True,
+    def __init__(self, name, path, callback,
+                 aggregate=None, use_existing=False, flush_existing=True,
                  event_trigger_time=0.5, stop_polling_rate=2, *,
                  force_run=False, propagate_skip=True):
-        """ Initialise the filesystem notify trigger task.
+        """ Initialize the filesystem notify trigger task.
 
-        All task parameters except the name, force_run and propagate_skip can either be
-        their native type or a callable returning the native type.
+        All task parameters except the name, callback, force_run and propagate_skip
+        can either be their native type or a callable returning the native type.
 
         Args:
             name (str): The name of the task.
-            dag_name: The name of the DAG that should be executed after the
-                      specified number of file change events has occurred.
             path: The path to the file that should be watched for new lines.
                   The path has to be an absolute path, otherwise an exception is thrown.
-            out_key: The key under which the list of lines is being stored in the
-                      data that is passed to the DAG. The default is 'lines'.
-            aggregate: The number of lines that are aggregated before the DAG
-                       is triggered. Set to None or 1 to trigger on each new line
-                       event occurrence.
-            use_existing: Use the existing lines that are located in file for
-                          initialising the line list.
-            flush_existing: If use_existing is True, then flush all existing lines without
-                            regard to the aggregation setting. I.e,. all existing lines
-                            saved to data and sent to target DAG.
-            event_trigger_time: The waiting time between events in seconds. Set
-                                to None to turn off.
-            stop_polling_rate: The number of events after which a signal is sent
-                               to the workflow to check whether the task
-                               should be stopped.
+            callback (callable): A callable object that is called with the list of lines
+                                 that have changed. The function definition is
+                                 def callback(lines, data, store, signal, context). If
+                                 the content of the data object was changed, the function
+                                 has to return the new data in order to pass it on to
+                                 the next task.
+            aggregate (int, None): The number of lines that are aggregated before the
+                                   callback is called. Set to None or 1 to trigger
+                                   on each new line event occurrence.
+            use_existing (bool): Use the existing lines that are located in file for
+                                 initialising the line list.
+            flush_existing (bool): If 'use_existing' is True, then flush all existing
+                                   lines without regard to the aggregation setting.
+                                   I.e,. all existing lines are sent to the callback.
+            event_trigger_time (float, None): The waiting time between events in seconds.
+                                              Set to None to turn off.
+            stop_polling_rate (float): The number of events after which a signal is sent
+                                       to the workflow to check whether the task
+                                       should be stopped.
             force_run (bool): Run the task even if it is flagged to be skipped.
             propagate_skip (bool): Propagate the skip flag to the next task.
         """
@@ -55,17 +55,16 @@ class NewLineTriggerTask(BaseTask):
 
         # set the tasks's parameters
         self.params = TaskParameters(
-            dag_name=dag_name,
             path=path,
-            out_key=out_key if out_key is not None else 'lines',
             aggregate=aggregate if aggregate is not None else 1,
             use_existing=use_existing,
             flush_existing=flush_existing,
             event_trigger_time=event_trigger_time,
             stop_polling_rate=stop_polling_rate,
         )
+        self._callback = callback
 
-    def run(self, data, store, signal, **kwargs):
+    def run(self, data, store, signal, context, **kwargs):
         """ The main run method of the NotifyTriggerTask task.
 
         Args:
@@ -76,6 +75,7 @@ class NewLineTriggerTask(BaseTask):
                                        workflow run.
             signal (TaskSignal): The signal object for tasks. It wraps the construction
                                  and sending of signals into easy to use methods.
+            context (TaskContext): The context in which the tasks runs.
 
         Raises:
             LightflowFilesystemPathError: If the specified path is not absolute.
@@ -100,14 +100,18 @@ class NewLineTriggerTask(BaseTask):
 
             num_read_lines = len(lines)
             if params.flush_existing and num_read_lines > 0:
-                data[params.out_key] = lines
-                signal.start_dag(params.dag_name, data=data)
+                if self._callback is not None:
+                    self._callback(lines, data.copy(), store, signal, context)
+
                 del lines[:]
 
         polling_event_number = 0
 
-        def watch_file(file_pointer):
+        def watch_file(file_pointer, signal):
             while True:
+                if signal.is_stopped:
+                    break
+
                 new = file_pointer.readline()
                 if new:
                     yield new
@@ -122,7 +126,7 @@ class NewLineTriggerTask(BaseTask):
             else:
                 file.seek(0, 2)
 
-            for line in watch_file(file):
+            for line in watch_file(file, signal):
                 lines.append(line)
 
                 # check every stop_polling_rate events the stop signal
@@ -132,12 +136,14 @@ class NewLineTriggerTask(BaseTask):
                     if signal.is_stopped:
                         break
 
-                # as soon as enough line have been aggregated call the sub dag
+                # as soon as enough lines have been aggregated call the callback function
                 if len(lines) >= params.aggregate:
                     chunks = len(lines) // params.aggregate
                     for i in range(0, chunks):
-                        data[params.out_key] = lines[0:params.aggregate]
-                        signal.start_dag(params.dag_name, data=data)
+                        if self._callback is not None:
+                            self._callback(lines[0:params.aggregate], data.copy(),
+                                           store, signal, context)
+
                         del lines[0:params.aggregate]
         finally:
             file.close()
