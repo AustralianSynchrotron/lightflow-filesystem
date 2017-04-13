@@ -33,14 +33,13 @@ setup(
         'Natural Language :: English',
         'Intended Audience :: Developers',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.5',
     ],
 
     packages=find_packages(exclude=['tests', 'examples']),
 
     install_requires=[
-        'Lightflow>=0.1',
+        'lightflow>=1.0.0',
         'inotify>=0.2.8'
     ],
 
