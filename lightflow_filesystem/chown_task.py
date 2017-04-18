@@ -17,7 +17,7 @@ class ChownTask(BaseTask):
                  queue=JobType.Task, force_run=False, propagate_skip=True):
         """ Initialize the change ownership task.
 
-        All task parameters except the name, callback, queue, force_run and propagate_skip
+        All task parameters except the name, queue, force_run and propagate_skip
         can either be their native type or a callable returning the native type.
 
         Args:
