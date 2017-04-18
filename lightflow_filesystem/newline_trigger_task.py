@@ -1,6 +1,7 @@
 import os
 import time
 
+from lightflow.queue import JobType
 from lightflow.logger import get_logger
 from lightflow.models import BaseTask, TaskParameters
 from .exceptions import LightflowFilesystemPathError
@@ -19,10 +20,10 @@ class NewLineTriggerTask(BaseTask):
     def __init__(self, name, path, callback,
                  aggregate=None, use_existing=False, flush_existing=True,
                  event_trigger_time=0.5, stop_polling_rate=2, *,
-                 force_run=False, propagate_skip=True):
+                 queue=JobType.Task, force_run=False, propagate_skip=True):
         """ Initialize the filesystem notify trigger task.
 
-        All task parameters except the name, callback, force_run and propagate_skip
+        All task parameters except the name, callback, queue, force_run and propagate_skip
         can either be their native type or a callable returning the native type.
 
         Args:
@@ -45,10 +46,13 @@ class NewLineTriggerTask(BaseTask):
             stop_polling_rate (float): The number of events after which a signal is sent
                                        to the workflow to check whether the task
                                        should be stopped.
+            queue (str): Name of the queue the task should be scheduled to. Defaults to
+                         the general task queue.
             force_run (bool): Run the task even if it is flagged to be skipped.
             propagate_skip (bool): Propagate the skip flag to the next task.
         """
-        super().__init__(name, force_run=force_run, propagate_skip=propagate_skip)
+        super().__init__(name, queue=queue,
+                         force_run=force_run, propagate_skip=propagate_skip)
 
         # set the tasks's parameters
         self.params = TaskParameters(

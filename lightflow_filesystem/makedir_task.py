@@ -1,5 +1,6 @@
 import os
 
+from lightflow.queue import JobType
 from lightflow.logger import get_logger
 from lightflow.models import BaseTask, Action, TaskParameters
 from .exceptions import LightflowFilesystemPathError, LightflowFilesystemMkdirError
@@ -9,8 +10,12 @@ logger = get_logger(__name__)
 
 class MakeDirTask(BaseTask):
     """ Creates one or more new directories if they do not exist yet. """
-    def __init__(self, name, paths, *, force_run=False, propagate_skip=True):
-        """ Initialise the MakeDir task.
+    def __init__(self, name, paths, *,
+                 queue=JobType.Task, force_run=False, propagate_skip=True):
+        """ Initialize the MakeDir task.
+
+        All task parameters except the name, callback, queue, force_run and propagate_skip
+        can either be their native type or a callable returning the native type.
 
         Args:
             name (str): The name of the task.
@@ -18,10 +23,14 @@ class MakeDirTask(BaseTask):
                    be created. This parameter can either be a list of strings
                    or a callable that returns a list of strings. The paths have
                    to be absolute paths, otherwise an exception is thrown.
+            queue (str): Name of the queue the task should be scheduled to. Defaults to
+                         the general task queue.
             force_run (bool): Run the task even if it is flagged to be skipped.
             propagate_skip (bool): Propagate the skip flag to the next task.
         """
-        super().__init__(name, force_run=force_run, propagate_skip=propagate_skip)
+        super().__init__(name, queue=queue,
+                         force_run=force_run, propagate_skip=propagate_skip)
+
         self.params = TaskParameters(paths=paths)
 
     def run(self, data, store, signal, context, **kwargs):

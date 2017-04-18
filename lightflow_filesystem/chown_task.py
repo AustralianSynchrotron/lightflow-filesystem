@@ -1,6 +1,7 @@
 import os
 import shutil
 
+from lightflow.queue import JobType
 from lightflow.logger import get_logger
 from lightflow.models import BaseTask, TaskParameters
 from .exceptions import (LightflowFilesystemConfigError, LightflowFilesystemPathError,
@@ -13,8 +14,11 @@ class ChownTask(BaseTask):
     """ Sets the ownership of files and directories. """
     def __init__(self, name, paths, user=None, group=None,
                  recursive=True, only_dirs=False, *,
-                 force_run=False, propagate_skip=True):
-        """ Initialise the change ownership task.
+                 queue=JobType.Task, force_run=False, propagate_skip=True):
+        """ Initialize the change ownership task.
+
+        All task parameters except the name, callback, queue, force_run and propagate_skip
+        can either be their native type or a callable returning the native type.
 
         Args:
             name (str): The name of the task.
@@ -32,10 +36,14 @@ class ChownTask(BaseTask):
             only_dirs: Set to True to only set the ownership for directories and
                        not for files. This parameter can either be a Boolean value or
                        a callable returning a Boolean value.
+            queue (str): Name of the queue the task should be scheduled to. Defaults to
+                         the general task queue.
             force_run (bool): Run the task even if it is flagged to be skipped.
             propagate_skip (bool): Propagate the skip flag to the next task.
         """
-        super().__init__(name, force_run=force_run, propagate_skip=propagate_skip)
+        super().__init__(name, queue=queue,
+                         force_run=force_run, propagate_skip=propagate_skip)
+
         self.params = TaskParameters(
             paths=paths,
             user=user,

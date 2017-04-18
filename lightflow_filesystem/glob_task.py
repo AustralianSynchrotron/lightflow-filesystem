@@ -1,6 +1,7 @@
+from glob import glob
 from os.path import isabs, basename, join as pjoin
 
-from glob import glob
+from lightflow.queue import JobType
 from lightflow.logger import get_logger
 from lightflow.models import BaseTask, TaskParameters, Action
 from .exceptions import LightflowFilesystemPathError
@@ -11,8 +12,12 @@ logger = get_logger(__name__)
 class GlobTask(BaseTask):
     """ Returns list of files from path using glob. """
     def __init__(self, name, paths, callback, pattern='*', recursive=False,
-                 return_abs=True, *, force_run=False, propagate_skip=True):
+                 return_abs=True, *,
+                 queue=JobType.Task, force_run=False, propagate_skip=True):
         """ Initialize the glob task object.
+
+        All task parameters except the name, callback, queue, force_run and propagate_skip
+        can either be their native type or a callable returning the native type.
 
         Args:
             name (str): The name of the task.
@@ -30,10 +35,13 @@ class GlobTask(BaseTask):
                               May slow things down if lots of files.
             return_abs (bool): If True return absolute paths,
                                if False return filename only.
+            queue (str): Name of the queue the task should be scheduled to. Defaults to
+                         the general task queue.
             force_run (bool): Run the task even if it is flagged to be skipped.
             propagate_skip (bool): Propagate the skip flag to the next task.
         """
-        super().__init__(name, force_run=force_run, propagate_skip=propagate_skip)
+        super().__init__(name, queue=queue,
+                         force_run=force_run, propagate_skip=propagate_skip)
 
         if isinstance(paths, str):
             paths = [paths]
