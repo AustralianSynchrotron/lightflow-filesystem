@@ -11,12 +11,9 @@ from lightflow_filesystem import GlobTask
 
 
 # the callback function that handles the returned files from the glob task. In this
-# example it stores them as a list into the data under the key 'files'. Please note
-# how the function returns the data in order to pass the modified data on to the
-# next task.
+# example it stores them as a list into the data under the key 'files'.
 def store_files(files, data, store, signal, context):
     data['files'] = files
-    return data
 
 
 # the callback for the task that prints the filenames that were returned by the glob task.

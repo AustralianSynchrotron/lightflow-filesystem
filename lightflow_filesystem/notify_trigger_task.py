@@ -6,7 +6,7 @@ import inotify.constants as constants
 
 from lightflow.queue import JobType
 from lightflow.logger import get_logger
-from lightflow.models import BaseTask, TaskParameters
+from lightflow.models import BaseTask, TaskParameters, Action
 from .exceptions import LightflowFilesystemPathError
 
 
@@ -148,7 +148,7 @@ class NotifyTriggerTask(BaseTask):
 
             if params.flush_existing and len(files) > 0:
                 if self._callback is not None:
-                    self._callback(files, data.copy(), store, signal, context)
+                    self._callback(files, data, store, signal, context)
                 del files[:]
 
         polling_event_number = 0
@@ -187,10 +187,12 @@ class NotifyTriggerTask(BaseTask):
                     chunks = len(files) // params.aggregate
                     for i in range(0, chunks):
                         if self._callback is not None:
-                            self._callback(files[0:params.aggregate], data.copy(),
+                            self._callback(files[0:params.aggregate], data,
                                            store, signal, context)
                         del files[0:params.aggregate]
 
         finally:
             if not params.recursive:
                 notify.remove_watch(params.path.encode('utf-8'))
+
+        return Action(data)

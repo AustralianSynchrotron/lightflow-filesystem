@@ -3,7 +3,7 @@ import time
 
 from lightflow.queue import JobType
 from lightflow.logger import get_logger
-from lightflow.models import BaseTask, TaskParameters
+from lightflow.models import BaseTask, TaskParameters, Action
 from .exceptions import LightflowFilesystemPathError
 
 
@@ -97,7 +97,7 @@ class NewLineTriggerTask(BaseTask):
             num_read_lines = len(lines)
             if params.flush_existing and num_read_lines > 0:
                 if self._callback is not None:
-                    self._callback(lines, data.copy(), store, signal, context)
+                    self._callback(lines, data, store, signal, context)
 
                 del lines[:]
 
@@ -137,9 +137,11 @@ class NewLineTriggerTask(BaseTask):
                     chunks = len(lines) // params.aggregate
                     for i in range(0, chunks):
                         if self._callback is not None:
-                            self._callback(lines[0:params.aggregate], data.copy(),
+                            self._callback(lines[0:params.aggregate], data,
                                            store, signal, context)
 
                         del lines[0:params.aggregate]
         finally:
             file.close()
+
+        return Action(data)

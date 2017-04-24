@@ -25,10 +25,7 @@ class GlobTask(BaseTask):
                               have to be absolute paths, otherwise an exception is thrown.
             callback (callable): A callable object that is called with the result of the
                                  glob operation. The function definition is
-                                 def callback(files, data, store, signal, context). If
-                                 the content of the data object was changed, the function
-                                 has to return the new data in order to pass it on to
-                                 the next task.
+                                 def callback(files, data, store, signal, context).
             pattern (str): The glob style pattern to match when returning files.
             recursive (bool): Recursively look for files. Use ** to match any files
                               and zero or more directories and subdirectories.
@@ -85,8 +82,6 @@ class GlobTask(BaseTask):
                                   recursive=params.recursive)]
 
         if self._callback is not None:
-            new_data = self._callback(files, data.copy(), store, signal, context)
-            if new_data is not None:
-                data = new_data
+            self._callback(files, data, store, signal, context)
 
         return Action(data)
