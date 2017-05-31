@@ -12,5 +12,6 @@ from .chown_task import ChownTask
 from .chmod_task import ChmodTask
 from .glob_task import GlobTask
 from .newline_trigger_task import NewLineTriggerTask
+from .walk_task import WalkTask
 
-__version__ = '1.2.0'
+__version__ = '1.3.0'
