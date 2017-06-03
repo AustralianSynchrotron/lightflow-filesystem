@@ -12,8 +12,9 @@ logger = get_logger(__name__)
 class GlobTask(BaseTask):
     """ Returns list of files from path using glob. """
     def __init__(self, name, paths, callback, pattern='*', recursive=False,
-                 return_abs=True, *,
-                 queue=JobType.Task, force_run=False, propagate_skip=True):
+                 return_abs=True, *, queue=JobType.Task,
+                 callback_init=None, callback_finally=None,
+                 force_run=False, propagate_skip=True):
         """ Initialize the glob task object.
 
         All task parameters except the name, callback, queue, force_run and propagate_skip
@@ -34,10 +35,30 @@ class GlobTask(BaseTask):
                                if False return filename only.
             queue (str): Name of the queue the task should be scheduled to. Defaults to
                          the general task queue.
+            callback_init (callable): A callable that is called shortly before the task
+                                      is run. The definition is:
+                                        def (data, store, signal, context)
+                                      where data the task data, store the workflow
+                                      data store, signal the task signal and
+                                      context the task context.
+            callback_finally (callable): A callable that is always called at the end of
+                                         a task, regardless whether it completed
+                                         successfully, was stopped or was aborted.
+                                         The definition is:
+                                           def (status, data, store, signal, context)
+                                         where status specifies whether the task was
+                                           completed: TaskState.Completed
+                                           stopped: TaskState.Stopped
+                                           aborted: TaskState.Aborted
+                                           raised exception: TaskState.Exception
+                                         data the task data, store the workflow
+                                         data store, signal the task signal and
+                                         context the task context.
             force_run (bool): Run the task even if it is flagged to be skipped.
             propagate_skip (bool): Propagate the skip flag to the next task.
         """
         super().__init__(name, queue=queue,
+                         callback_init=callback_init, callback_finally=callback_finally,
                          force_run=force_run, propagate_skip=propagate_skip)
 
         if isinstance(paths, str):

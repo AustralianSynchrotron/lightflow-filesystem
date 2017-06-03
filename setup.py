@@ -39,7 +39,7 @@ setup(
     packages=find_packages(exclude=['tests', 'examples']),
 
     install_requires=[
-        'lightflow>=1.0.0',
+        'lightflow>=1.6.1',
         'inotify>=0.2.8'
     ],
 
