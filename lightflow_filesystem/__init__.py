@@ -14,4 +14,4 @@ from .glob_task import GlobTask
 from .newline_trigger_task import NewLineTriggerTask
 from .walk_task import WalkTask
 
-__version__ = '1.4.0'
+__version__ = '1.4.1'
