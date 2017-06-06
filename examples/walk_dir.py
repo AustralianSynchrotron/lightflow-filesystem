@@ -1,16 +1,16 @@
 """ Acquire some simple statistics about the files in a directory
 
 This workflow traverses the specified directory recursively and counts the number of
-files and accumulates their total size. Symbolic links are not counted. 
+files and accumulates their total size. Symbolic links are not counted.
 
 """
-from lightflow.models import Arguments, Option, Dag
+from lightflow.models import Parameters, Option, Dag
 from lightflow_filesystem import WalkTask
 from lightflow.tasks import PythonTask
 
 
 # requires the path to the directory as an argument
-arguments = Arguments([
+parameters = Parameters([
     Option('path', help='The path for which the statistics should be acquired', type=str)
 ])
 
