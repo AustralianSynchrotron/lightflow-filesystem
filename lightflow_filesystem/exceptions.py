@@ -29,3 +29,7 @@ class LightflowFilesystemChmodError(RuntimeError):
 
 class LightflowFilesystemPermissionError(RuntimeError):
     pass
+
+
+class LightflowFilesystemRemoveError(RuntimeError):
+    pass
