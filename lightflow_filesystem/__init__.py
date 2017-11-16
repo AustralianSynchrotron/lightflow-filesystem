@@ -8,6 +8,7 @@ from .notify_trigger_task import NotifyTriggerTask
 from .makedir_task import MakeDirTask
 from .copy_task import CopyTask
 from .move_task import MoveTask
+from .remove_task import RemoveTask
 from .chown_task import ChownTask
 from .chmod_task import ChmodTask
 from .glob_task import GlobTask
