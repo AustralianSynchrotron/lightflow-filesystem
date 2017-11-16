@@ -21,10 +21,12 @@ class MoveTask(BaseTask):
 
         Args:
             name (str): The name of the task.
-            sources: A list of file or directory paths that should be moved. This
-                    parameter can either be a list of strings or a callable
-                    returning a list of strings. The paths have to be absolute
-                    paths, otherwise an exception is thrown.
+            sources (str/list/callable): A single file or directory path or a list of
+                                         file or directory paths that should be moved.
+                                         This parameter can either be a string, a list of
+                                         strings or a callable that returns a string or a
+                                         list of strings. The paths have to be absolute
+                                         paths, otherwise an exception is thrown.
             destination: The destination file or folder the source should be
                          moved to. This parameter can either be a string or a
                          callable returning a string.
@@ -85,7 +87,9 @@ class MoveTask(BaseTask):
                     should be executed.
         """
         params = self.params.eval(data, store)
-        for source in params.sources:
+        sources = [params.sources] if isinstance(params.sources, str) else params.sources
+
+        for source in sources:
             logger.info('Move {} to {}'.format(source, params.destination))
 
             if not os.path.isabs(source):

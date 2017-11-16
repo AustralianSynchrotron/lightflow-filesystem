@@ -22,8 +22,11 @@ class GlobTask(BaseTask):
 
         Args:
             name (str): The name of the task.
-            paths (str/list): A path, or list of paths, to look in for files. The paths
-                              have to be absolute paths, otherwise an exception is thrown.
+            paths (str/list/callable): A path, or list of paths, to look in for files.
+                                       The paths have to be absolute paths, otherwise an
+                                       exception is thrown. This parameter can either be
+                                       a string, a list of strings or a callable that
+                                       returns a string or a list of strings.
             callback (callable): A callable object that is called with the result of the
                                  glob operation. The function definition is
                                  def callback(files, data, store, signal, context).
@@ -61,14 +64,12 @@ class GlobTask(BaseTask):
                          callback_init=callback_init, callback_finally=callback_finally,
                          force_run=force_run, propagate_skip=propagate_skip)
 
-        if isinstance(paths, str):
-            paths = [paths]
-
-        self.params = TaskParameters(paths=paths,
-                                     pattern=pattern,
-                                     recursive=recursive,
-                                     return_abs=return_abs,
-                                     )
+        self.params = TaskParameters(
+            paths=paths,
+            pattern=pattern,
+            recursive=recursive,
+            return_abs=return_abs
+        )
         self._callback = callback
 
     def run(self, data, store, signal, context, **kwargs):
@@ -93,12 +94,13 @@ class GlobTask(BaseTask):
                     should be executed.
         """
         params = self.params.eval(data, store)
+        paths = [params.paths] if isinstance(params.paths, str) else params.paths
 
-        if not all([isabs(path) for path in params.paths]):
+        if not all([isabs(path) for path in paths]):
             raise LightflowFilesystemPathError(
                 'The specified path is not an absolute path')
 
-        files = [file if params.return_abs else basename(file) for path in params.paths
+        files = [file if params.return_abs else basename(file) for path in paths
                  for file in glob(pjoin(path, params.pattern),
                                   recursive=params.recursive)]
 

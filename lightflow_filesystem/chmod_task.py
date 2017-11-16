@@ -23,10 +23,13 @@ class ChmodTask(BaseTask):
 
         Args:
             name (str): The name of the task.
-            paths: A list of paths representing the files or directories for which
-                   the permissions should be changed. This parameter can either be
-                   a list of strings or a callable that returns a list of strings.
-                   The paths have to be absolute paths, otherwise an exception is thrown.
+            paths (str/list/callable): A path, or list of paths representing the files or
+                                       directories for which the permissions should be
+                                       changed. The paths have to be absolute paths,
+                                       otherwise an exception is thrown. This parameter
+                                       can either be a string, a list of strings or a
+                                       callable that returns a string or a list
+                                       of strings.
             permission: The POSIX permission as a string (e.g. '755'). This parameter can
                         either be a string or a callable returning a string.
             recursive: Set to True to recursively change subfolders and files
@@ -94,8 +97,9 @@ class ChmodTask(BaseTask):
         """
         params = self.params.eval(data, store)
         path_perm = int(params.permission, 8)
+        paths = [params.paths] if isinstance(params.paths, str) else params.paths
 
-        for path in params.paths:
+        for path in paths:
             if os.path.isdir(path):
                 if not os.path.isabs(path):
                     raise LightflowFilesystemPathError(

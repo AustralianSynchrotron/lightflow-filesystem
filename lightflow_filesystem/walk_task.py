@@ -22,7 +22,7 @@ class WalkTask(BaseTask):
         Args:
             name (str): The name of the task.
             path (str, callable): The path to the directory that should be walked.
-                                  The path has to bean an absolute path, otherwise
+                                  The path has to be an absolute path, otherwise
                                   an exception is thrown.
             callback (callable): A callable object that is called for each file in the
                                  directory given by path. The function definition is

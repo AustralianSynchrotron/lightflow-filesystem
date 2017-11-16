@@ -20,10 +20,12 @@ class MakeDirTask(BaseTask):
 
         Args:
             name (str): The name of the task.
-            paths: A list of paths representing the directories that should
-                   be created. This parameter can either be a list of strings
-                   or a callable that returns a list of strings. The paths have
-                   to be absolute paths, otherwise an exception is thrown.
+            paths (str/list/callable): A path, or list of paths representing the
+                                       directories that should be created. The paths have
+                                       to be absolute paths, otherwise an exception is
+                                       thrown. This parameter can either be a string,
+                                       a list of strings or a callable that returns a
+                                       string or a list of strings.
             queue (str): Name of the queue the task should be scheduled to. Defaults to
                          the general task queue.
             callback_init (callable): A callable that is called shortly before the task
@@ -76,8 +78,9 @@ class MakeDirTask(BaseTask):
                     should be executed.
         """
         params = self.params.eval(data, store)
+        paths = [params.paths] if isinstance(params.paths, str) else params.paths
 #
-        for path in params.paths:
+        for path in paths:
             if not os.path.isabs(path):
                 raise LightflowFilesystemPathError(
                     'The specified path is not an absolute path')
