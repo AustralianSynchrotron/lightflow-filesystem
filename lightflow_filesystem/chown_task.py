@@ -137,10 +137,10 @@ class ChownTask(BaseTask):
                         for name in dirs:
                             shutil.chown(os.path.join(root, name),
                                          params.user, params.group)
-                except OSError as e:
+                except (OSError, FileNotFoundError) as e:
                     LightflowFilesystemChownError(e)
             else:
                 try:
                     shutil.chown(path, params.user, params.group)
-                except OSError as e:
+                except (OSError, FileNotFoundError) as e:
                     LightflowFilesystemChownError(e)

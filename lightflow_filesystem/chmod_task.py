@@ -125,10 +125,10 @@ class ChmodTask(BaseTask):
 
                         for name in dirs:
                             os.chmod(os.path.join(root, name), path_perm)
-                except OSError as e:
+                except (OSError, FileNotFoundError) as e:
                     LightflowFilesystemChmodError(e)
             else:
                 try:
                     os.chmod(path, path_perm)
-                except OSError as e:
+                except (OSError, FileNotFoundError) as e:
                     LightflowFilesystemChmodError(e)
